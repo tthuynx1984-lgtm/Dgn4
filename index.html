@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hệ Thống Xử Lý & Định Danh Thửa Đất DGN - GIS Enterprise</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- SheetJS (xlsx) CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- JSZip CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <!-- FileSaver CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <style>
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<body class="bg-slate-100 font-sans text-slate-800 antialiased h-screen flex flex-col overflow-hidden">
+
+    <!-- TOP NAV BAR -->
+    <header class="bg-slate-900 text-white px-6 py-3 shadow-md flex justify-between items-center z-10">
+        <div class="flex items-center space-x-3">
+            <div class="bg-blue-600 p-2 rounded-lg text-white">
+                <i class="fa-solid fa-layer-group text-xl"></i>
+            </div>
+            <div>
+                <h1 class="font-bold text-lg leading-tight uppercase tracking-wide">Hệ Thống Phân Loại & Đổi Tên Thửa Đất DGN</h1>
+                <p class="text-xs text-slate-400">Công cụ Địa chính / GIS Chuyên nghiệp - Xử lý Hồ sơ Đất đai</p>
+            </div>
+        </div>
+        <div class="flex items-center space-x-4 text-xs text-slate-300">
+            <span class="flex items-center"><i class="fa-solid fa-hard-drive text-emerald-400 mr-1"></i> Ghi file ổ đĩa trực tiếp</span>
+            <span class="border-l border-slate-700 h-4"></span>
+            <span id="system-status" class="flex items-center"><i class="fa-solid fa-circle text-emerald-500 mr-1 text-[10px]"></i> Sẵn sàng</span>
+        </div>
+    </header>
+
+    <!-- MAIN WRAPPER (2-COLUMN LAYOUT) -->
+    <div class="flex flex-1 overflow-hidden">
+
+        <!-- LEFT COLUMN: SIDEBAR CONTROLS & INPUTS -->
+        <aside class="w-1/3 min-w-[360px] max-w-[480px] bg-white border-r border-slate-200 p-5 flex flex-col justify-between shadow-sm overflow-y-auto custom-scrollbar">
+            <div class="space-y-5">
+                <div class="border-b border-slate-200 pb-3">
+                    <h2 class="text-sm font-bold text-slate-700 uppercase tracking-wider flex items-center">
+                        <i class="fa-solid fa-sliders text-blue-600 mr-2"></i> Thiết lập & Đưa dữ liệu vào
+                    </h2>
+                </div>
+
+                <!-- BƯỚC 1: NHẬP EXCEL -->
+                <div class="space-y-1">
+                    <label class="block text-xs font-semibold text-slate-600 uppercase">1. File Danh Sách Thửa (Excel)</label>
+                    <div class="relative border-2 border-dashed border-slate-300 hover:border-blue-500 rounded-lg p-3 bg-slate-50 transition-all">
+                        <input type="file" id="excel-file-input" accept=".xlsx, .xls" class="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10">
+                        <div class="flex items-center space-x-3">
+                            <i class="fa-solid fa-file-excel text-emerald-600 text-2xl"></i>
+                            <div class="overflow-hidden">
+                                <p id="excel-file-name" class="text-xs font-semibold text-slate-700 truncate">Chọn hoặc thả file Excel vào đây...</p>
+                                <p class="text-[11px] text-slate-400">Hỗ trợ định dạng .xlsx, .xls</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- BƯỚC 2: CHỌN THƯ MỤC DGN NGUỒN -->
+                <div class="space-y-1">
+                    <label class="block text-xs font-semibold text-slate-600 uppercase">2. Thư Mục DGN Nguồn</label>
+                    <div class="relative border-2 border-dashed border-slate-300 hover:border-blue-500 rounded-lg p-3 bg-slate-50 transition-all">
+                        <input type="file" id="dgn-folder-input" webkitdirectory directory multiple class="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10">
+                        <div class="flex items-center space-x-3">
+                            <i class="fa-solid fa-folder-open text-amber-500 text-2xl"></i>
+                            <div class="overflow-hidden">
+                                <p id="dgn-folder-name" class="text-xs font-semibold text-slate-700 truncate">Chọn thư mục chứa các file .dgn...</p>
+                                <p id="dgn-count-text" class="text-[11px] text-slate-400">Đang chọn 0 file DGN</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- BƯỚC 3: CHỌN THƯ MỤC ĐÍCH -->
+                <div class="space-y-1">
+                    <label class="block text-xs font-semibold text-slate-600 uppercase">3. Thư Mục Đích Xuất File (Output)</label>
+                    <button type="button" id="btn-select-target-dir" class="w-full flex items-center justify-between border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 rounded-lg p-3 transition-all text-left">
+                        <div class="flex items-center space-x-3 overflow-hidden">
+                            <i class="fa-solid fa-folder-plus text-blue-600 text-2xl"></i>
+                            <div class="overflow-hidden">
+                                <p id="target-dir-name" class="text-xs font-semibold text-slate-700 truncate">Bấm chọn thư mục xuất trên máy...</p>
+                                <p id="target-dir-desc" class="text-[11px] text-slate-400">Ghi trực tiếp không qua giải nén ZIP</p>
+                            </div>
+                        </div>
+                        <i class="fa-solid fa-chevron-right text-slate-400 text-xs"></i>
+                    </button>
+                </div>
+
+                <!-- NÚT THỰC HIỆN -->
+                <div class="pt-2">
+                    <button type="button" id="btn-process" disabled class="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-semibold py-3 px-4 rounded-lg shadow transition flex items-center justify-center space-x-2">
+                        <i class="fa-solid fa-play"></i>
+                        <span>BẮT ĐẦU ĐỐI CHIẾU & PHÂN LOẠI</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- FOOTER INFO -->
+            <div class="pt-4 border-t border-slate-200 text-center">
+                <p class="text-[11px] text-slate-400">Phiên bản Hệ thống Địa chính 2.5 • Chuẩn hóa dữ liệu theo VB 515</p>
+            </div>
+        </aside>
+
+        <!-- RIGHT COLUMN: PROGRESS, METRICS, PREVIEW & CONSOLE LOG -->
+        <main class="flex-1 bg-slate-50 p-5 flex flex-col space-y-5 overflow-y-auto custom-scrollbar">
+
+            <!-- STATS CARDS -->
+            <div class="grid grid-cols-4 gap-4">
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-medium text-slate-500 uppercase">Tổng Thửa Đất</p>
+                        <h3 id="stat-total" class="text-2xl font-bold text-slate-800 mt-1">0</h3>
+                    </div>
+                    <div class="w-10 h-10 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center text-lg">
+                        <i class="fa-solid fa-list-check"></i>
+                    </div>
+                </div>
+
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-medium text-slate-500 uppercase">Tìm Thấy (Có)</p>
+                        <h3 id="stat-found" class="text-2xl font-bold text-emerald-600 mt-1">0</h3>
+                    </div>
+                    <div class="w-10 h-10 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center text-lg">
+                        <i class="fa-solid fa-circle-check"></i>
+                    </div>
+                </div>
+
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-medium text-slate-500 uppercase">Đã Biến Động</p>
+                        <h3 id="stat-missing" class="text-2xl font-bold text-rose-600 mt-1">0</h3>
+                    </div>
+                    <div class="w-10 h-10 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center text-lg">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                    </div>
+                </div>
+
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-medium text-slate-500 uppercase">Tỷ Lệ Tìm Thấy</p>
+                        <h3 id="stat-rate" class="text-2xl font-bold text-indigo-600 mt-1">0%</h3>
+                    </div>
+                    <div class="w-10 h-10 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center text-lg">
+                        <i class="fa-solid fa-chart-pie"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PROGRESS BAR PANEL -->
+            <div id="progress-container" class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-2">
+                <div class="flex justify-between items-center text-xs font-semibold">
+                    <span id="progress-status-text" class="text-slate-700">Trạng thái: Đang chờ file đầu vào...</span>
+                    <span id="progress-percent" class="text-blue-600">0%</span>
+                </div>
+                <div class="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden border border-slate-200">
+                    <div id="progress-bar-fill" class="bg-blue-600 h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <!-- PREVIEW DATA TABLE -->
+            <div class="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col flex-1 overflow-hidden min-h-[300px]">
+                <div class="p-4 border-b border-slate-200 flex justify-between items-center">
+                    <div class="flex items-center space-x-2">
+                        <i class="fa-solid fa-table-cells text-blue-600"></i>
+                        <h3 class="font-bold text-sm text-slate-800">Danh Sách Báo Cáo Đối Chiếu</h3>
+                    </div>
+                    <div class="flex items-center space-x-3">
+                        <div class="relative">
+                            <input type="text" id="table-search" placeholder="Tìm kiếm xã, tờ, thửa..." class="text-xs border border-slate-300 rounded-lg pl-8 pr-3 py-1.5 focus:outline-none focus:border-blue-500 w-64">
+                            <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-2.5 text-slate-400 text-xs"></i>
+                        </div>
+                        <button id="btn-download-excel-only" disabled class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white rounded-lg text-xs font-semibold flex items-center space-x-1 transition">
+                            <i class="fa-solid fa-file-excel"></i>
+                            <span>Tải riêng Excel</span>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="flex-1 overflow-auto custom-scrollbar">
+                    <table class="w-full text-left text-xs border-collapse">
+                        <thead class="bg-slate-50 text-slate-600 font-semibold sticky top-0 border-b border-slate-200 shadow-sm">
+                            <tr>
+                                <th class="p-3">STT</th>
+                                <th class="p-3">Đơn Vị Hành Chính (Xã)</th>
+                                <th class="p-3">Số Tờ</th>
+                                <th class="p-3">Số Thửa</th>
+                                <th class="p-3 text-center">Trạng Thái Kết Quả</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-body" class="divide-y divide-slate-100 text-slate-700">
+                            <tr>
+                                <td colspan="5" class="text-center py-12 text-slate-400">
+                                    <i class="fa-solid fa-folder-open text-3xl mb-2 block text-slate-300"></i>
+                                    Chưa có dữ liệu. Vui lòng nạp file Excel và thư mục DGN để xem báo cáo.
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- TERMINAL LOG -->
+            <div class="bg-slate-900 text-slate-300 rounded-xl p-4 font-mono text-xs shadow-inner h-36 flex flex-col">
+                <div class="flex items-center justify-between border-b border-slate-800 pb-2 mb-2">
+                    <span class="text-slate-400 font-semibold flex items-center"><i class="fa-solid fa-terminal mr-2 text-emerald-400"></i> Terminal Log</span>
+                    <button onclick="document.getElementById('console-terminal').innerText=''" class="text-[10px] text-slate-500 hover:text-slate-300">Xóa log</button>
+                </div>
+                <div id="console-terminal" class="flex-1 overflow-y-auto custom-scrollbar space-y-1">
+                    <p class="text-emerald-400">[Hệ Thống] Đã khởi tạo hoàn tất. Sẵn sàng xử lý dữ liệu.</p>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- MAIN JAVASCRIPT APP LOGIC -->
+    <script>
+        // System Global State
+        let excelWorkbook = null;
+        let excelRawRows = [];
+        let dgnFilesMap = new Map(); // normalizedKey -> File object
+        let processedResults = [];
+        let targetDirectoryHandle = null;
+
+        // Column indexes
+        let colXaIdx = -1, colToIdx = -1, colThuaIdx = -1, headerRowIdx = -1;
+
+        // DOM References
+        const excelInput = document.getElementById('excel-file-input');
+        const dgnInput = document.getElementById('dgn-folder-input');
+        const btnSelectTarget = document.getElementById('btn-select-target-dir');
+        const btnProcess = document.getElementById('btn-process');
+        const btnDownloadExcel = document.getElementById('btn-download-excel-only');
+        const searchInput = document.getElementById('table-search');
+
+        // Log Function
+        function appendLog(msg, type = 'info') {
+            const terminal = document.getElementById('console-terminal');
+            const time = new Date().toLocaleTimeString();
+            let color = 'text-slate-300';
+            if (type === 'success') color = 'text-emerald-400';
+            if (type === 'warn') color = 'text-amber-400';
+            if (type === 'error') color = 'text-rose-400';
+            
+            const p = document.createElement('p');
+            p.className = color;
+            p.innerText = `[${time}] ${msg}`;
+            terminal.appendChild(p);
+            terminal.scrollTop = terminal.scrollHeight;
+        }
+
+        // Normalize Key for Matching (Tờ - Thửa)
+        function generateMatchKey(to, thua) {
+            const cleanTo = String(to || '').trim().replace(/^0+/, '');
+            const cleanThua = String(thua || '').trim().replace(/^0+/, '');
+            return `${cleanTo}_${cleanThua}`;
+        }
+
+        // File Selection Handlers
+        excelInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            document.getElementById('excel-file-name').innerText = file.name;
+            appendLog(`Đã nạp file Excel: ${file.name}`, 'info');
+
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const data = new Uint8Array(event.target.result);
+                excelWorkbook = XLSX.read(data, { type: 'array' });
+                parseExcelStructure();
+                checkReadyToProcess();
+            };
+            reader.readAsArrayBuffer(file);
+        });
+
+        dgnInput.addEventListener('change', (e) => {
+            const files = Array.from(e.target.files).filter(f => f.name.toLowerCase().endsWith('.dgn'));
+            dgnFilesMap.clear();
+            
+            files.forEach(file => {
+                // Parse filename: format like "So-do-hinh-the_thua-77_to-16.dgn" or "16-77.dgn"
+                const nameNoExt = file.name.replace(/\.dgn$/i, '');
+                const toMatch = nameNoExt.match(/(?:to|t)[-_]?(\d+)/i) || nameNoExt.match(/_(\d+)$/i);
+                const thuaMatch = nameNoExt.match(/(?:thua|th)[-_]?(\d+)/i) || nameNoExt.match(/^(\d+)[-_]/i);
+
+                if (toMatch && thuaMatch) {
+                    const key = generateMatchKey(toMatch[1], thuaMatch[1]);
+                    dgnFilesMap.set(key, file);
+                } else {
+                    // Fallback parse by numbers
+                    const nums = nameNoExt.match(/\d+/g);
+                    if (nums && nums.length >= 2) {
+                        const key = generateMatchKey(nums[1], nums[0]); // to_thua
+                        dgnFilesMap.set(key, file);
+                    }
+                }
+            });
+
+            document.getElementById('dgn-folder-name').innerText = `Thư mục (${files.length} file DGN)`;
+            document.getElementById('dgn-count-text').innerText = `Đã phân tích ${dgnFilesMap.size} file phù hợp`;
+            appendLog(`Đã quét thư mục DGN: Tìm thấy ${files.length} file DGN.`, 'success');
+            checkReadyToProcess();
+        });
+
+        // Native Directory Picker
+        btnSelectTarget.addEventListener('click', async () => {
+            if ('showDirectoryPicker' in window) {
+                try {
+                    targetDirectoryHandle = await window.showDirectoryPicker();
+                    document.getElementById('target-dir-name').innerText = targetDirectoryHandle.name;
+                    document.getElementById('target-dir-desc').innerText = 'Sẵn sàng ghi trực tiếp file vào ổ đĩa';
+                    appendLog(`Đã chọn thư mục đích: ${targetDirectoryHandle.name}`, 'success');
+                } catch (err) {
+                    appendLog('Đã hủy chọn thư mục đích.', 'warn');
+                }
+            } else {
+                alert('Trình duyệt của bạn không hỗ trợ chọn thư mục trực tiếp. Hệ thống sẽ đóng gói thành file ZIP để tải về.');
+            }
+        });
+
+        function parseExcelStructure() {
+            const sheet = excelWorkbook.Sheets[excelWorkbook.SheetNames[0]];
+            excelRawRows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+            // Scan headers
+            for (let r = 0; r < Math.min(15, excelRawRows.length); r++) {
+                const row = excelRawRows[r];
+                if (!row) continue;
+                for (let c = 0; c < row.length; c++) {
+                    const cellVal = String(row[c] || '').toLowerCase();
+                    if (cellVal.includes('xã') || cellVal.includes('đơn vị hành chính')) colXaIdx = c;
+                    if (cellVal.includes('tờ')) colToIdx = c;
+                    if (cellVal.includes('thửa')) colThuaIdx = c;
+                }
+                if (colToIdx !== -1 && colThuaIdx !== -1) {
+                    headerRowIdx = r;
+                    break;
+                }
+            }
+            appendLog(`Cấu trúc Excel: Tờ (Cột ${colToIdx+1}), Thửa (Cột ${colThuaIdx+1}), Xã (Cột ${colXaIdx+1})`, 'info');
+        }
+
+        function checkReadyToProcess() {
+            if (excelWorkbook && dgnFilesMap.size > 0) {
+                btnProcess.disabled = false;
+            }
+        }
+
+        // Process Match & Classification
+        btnProcess.addEventListener('click', async () => {
+            btnProcess.disabled = true;
+            processedResults = [];
+            
+            let foundCount = 0, missingCount = 0;
+            const xaGroups = new Map();
+
+            const dataRows = excelRawRows.slice(headerRowIdx + 1);
+            const total = dataRows.length;
+
+            appendLog('Đang tiến hành đối chiếu dữ liệu...', 'info');
+
+            for (let i = 0; i < dataRows.length; i++) {
+                const row = dataRows[i];
+                if (!row || row.length === 0) continue;
+
+                const xa = String(row[colXaIdx] || 'Xa_Tam_Duong').trim();
+                const to = String(row[colToIdx] || '').trim();
+                const thua = String(row[colThuaIdx] || '').trim();
+
+                if (!to || !thua) continue;
+
+                const matchKey = generateMatchKey(to, thua);
+                const matchedFile = dgnFilesMap.get(matchKey);
+                const status = matchedFile ? 'Có' : 'đã biến động';
+
+                if (matchedFile) foundCount++; else missingCount++;
+
+                const record = { rowIdx: headerRowIdx + 1 + i, xa, to, thua, status, file: matchedFile };
+                processedResults.push(record);
+
+                // Group by Xa & To
+                if (matchedFile) {
+                    if (!xaGroups.has(xa)) xaGroups.set(xa, new Map());
+                    const toMap = xaGroups.get(xa);
+                    if (!toMap.has(to)) toMap.set(to, []);
+                    toMap.get(to).push(matchedFile);
+                }
+
+                // Update Progress UI
+                const pct = Math.round(((i + 1) / total) * 100);
+                document.getElementById('progress-bar-fill').style.width = `${pct}%`;
+                document.getElementById('progress-percent').innerText = `${pct}%`;
+            }
+
+            // Update Stats UI
+            document.getElementById('stat-total').innerText = processedResults.length;
+            document.getElementById('stat-found').innerText = foundCount;
+            document.getElementById('stat-missing').innerText = missingCount;
+            const rate = processedResults.length ? Math.round((foundCount / processedResults.length) * 100) : 0;
+            document.getElementById('stat-rate').innerText = `${rate}%`;
+
+            renderTable(processedResults);
+            btnDownloadExcel.disabled = false;
+
+            // Output Handling
+            if (targetDirectoryHandle) {
+                appendLog('Đang ghi file vào thư mục đích đã chọn...', 'info');
+                await writeToDirectoryHandle(xaGroups);
+            } else {
+                appendLog('Đang đóng gói file ZIP tải về...', 'info');
+                await downloadZipPackage(xaGroups);
+            }
+
+            btnProcess.disabled = false;
+        });
+
+        // Write directly to Disk Handle
+        async function writeToDirectoryHandle(xaGroups) {
+            try {
+                for (let [xa, toMap] of xaGroups.entries()) {
+                    const xaDir = await targetDirectoryHandle.getDirectoryHandle(xa, { create: true });
+                    
+                    for (let [to, files] of toMap.entries()) {
+                        let combinedBuffers = [];
+                        for (let file of files) {
+                            // Copy original file
+                            const fileHandle = await xaDir.getFileHandle(file.name, { create: true });
+                            const writable = await fileHandle.createWritable();
+                            const buf = await file.arrayBuffer();
+                            await writable.write(buf);
+                            await writable.close();
+                            combinedBuffers.push(new Uint8Array(buf));
+                        }
+
+                        // Merge DGN for same To
+                        const mergedBuf = mergeDGNBuffers(combinedBuffers);
+                        const mergedFileName = `${xa}_To_${to}_Tong.dgn`;
+                        const mergedHandle = await xaDir.getFileHandle(mergedFileName, { create: true });
+                        const mergedWritable = await mergedHandle.createWritable();
+                        await mergedWritable.write(mergedBuf);
+                        await mergedWritable.close();
+                    }
+                }
+                
+                // Write Excel Report
+                const reportBuf = generateExcelReportBuffer();
+                const reportHandle = await targetDirectoryHandle.getFileHandle('Bao_Cao_Doi_Chieu_Thua_Dat.xlsx', { create: true });
+                const reportWritable = await reportHandle.createWritable();
+                await reportWritable.write(reportBuf);
+                await reportWritable.close();
+
+                appendLog('Hoàn tất! Tất cả file đã được phân loại và ghi vào thư mục đích.', 'success');
+            } catch (err) {
+                appendLog(`Lỗi khi ghi ổ đĩa: ${err.message}`, 'error');
+            }
+        }
+
+        // ZIP Fallback
+        async function downloadZipPackage(xaGroups) {
+            const zip = new JSZip();
+            for (let [xa, toMap] of xaGroups.entries()) {
+                const xaFolder = zip.folder(xa);
+                for (let [to, files] of toMap.entries()) {
+                    let combinedBuffers = [];
+                    for (let file of files) {
+                        const buf = await file.arrayBuffer();
+                        xaFolder.file(file.name, buf);
+                        combinedBuffers.push(new Uint8Array(buf));
+                    }
+                    const mergedBuf = mergeDGNBuffers(combinedBuffers);
+                    xaFolder.file(`${xa}_To_${to}_Tong.dgn`, mergedBuf);
+                }
+            }
+            zip.file('Bao_Cao_Doi_Chieu_Thua_Dat.xlsx', generateExcelReportBuffer());
+
+            const content = await zip.generateAsync({ type: 'blob' });
+            saveAs(content, 'Ket_Qua_Phan_Loai_DGN.zip');
+            appendLog('Đã xuất thành công gói file ZIP!', 'success');
+        }
+
+        function mergeDGNBuffers(buffers) {
+            let totalLen = buffers.reduce((acc, b) => acc + b.length, 0);
+            let out = new Uint8Array(totalLen);
+            let offset = 0;
+            for (let b of buffers) {
+                out.set(b, offset);
+                offset += b.length;
+            }
+            return out;
+        }
+
+        function generateExcelReportBuffer() {
+            const sheet = excelWorkbook.Sheets[excelWorkbook.SheetNames[0]];
+            const data = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+            
+            // Add column header
+            data[headerRowIdx].push('Kết quả đối chiếu');
+            processedResults.forEach(r => {
+                if (data[r.rowIdx]) data[r.rowIdx].push(r.status);
+            });
+
+            const newWs = XLSX.utils.aoa_to_sheet(data);
+            const newWb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(newWb, newWs, 'Báo Cáo Đối Chiếu');
+            return XLSX.write(newWb, { bookType: 'xlsx', type: 'array' });
+        }
+
+        // Render Data Table Preview
+        function renderTable(data) {
+            const tbody = document.getElementById('table-body');
+            tbody.innerHTML = '';
+
+            if (data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="text-center py-8 text-slate-400">Không tìm thấy kết quả phù hợp.</td></tr>`;
+                return;
+            }
+
+            data.slice(0, 500).forEach((item, index) => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-50 transition';
+                
+                const statusBadge = item.status === 'Có' 
+                    ? `<span class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-700">Có</span>`
+                    : `<span class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-rose-100 text-rose-700">đã biến động</span>`;
+
+                tr.innerHTML = `
+                    <td class="p-3 text-slate-400">${index + 1}</td>
+                    <td class="p-3 font-medium text-slate-800">${item.xa}</td>
+                    <td class="p-3">${item.to}</td>
+                    <td class="p-3 font-semibold text-blue-600">${item.thua}</td>
+                    <td class="p-3 text-center">${statusBadge}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Search Filter
+        searchInput.addEventListener('input', (e) => {
+            const q = e.target.value.toLowerCase();
+            const filtered = processedResults.filter(r => 
+                r.xa.toLowerCase().includes(q) || 
+                r.to.toLowerCase().includes(q) || 
+                r.thua.toLowerCase().includes(q)
+            );
+            renderTable(filtered);
+        });
+
+        // Download Excel Only
+        btnDownloadExcel.addEventListener('click', () => {
+            const buf = generateExcelReportBuffer();
+            const blob = new Blob([buf], { type: 'application/octet-stream' });
+            saveAs(blob, 'Bao_Cao_Doi_Chieu_Thua_Dat.xlsx');
+        });
+    </script>
+</body>
+</html>
